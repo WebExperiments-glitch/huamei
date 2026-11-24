@@ -1,0 +1,11 @@
+# Huamei 核心依赖
+pyarrow>=14.0
+pyyaml>=6.0
+datatrove>=0.10          # MinHash 去重引擎
+# spacy>=3.7             # datatrove 英文分词（可选，中文用字符级）
+# en-core-web-sm         # 英文 spacy 模型（可选）
+
+# LLM-as-judge 走标准库 urllib，无需额外 SDK
+# 可选：多模态/其他引擎（见 README）
+# data-juicer>=0.2
+# nemo-curator>=0.4

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  secret-scan:
+    name: 密钥泄漏扫描
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 扫描硬编码 API key
+        run: |
+          echo "扫描 sk- 开头的硬编码密钥..."
+          if grep -rEn "sk-[a-zA-Z0-9]{20,}" \
+            --include="*.py" --include="*.md" --include="*.yaml" \
+            --include="*.yml" --include="*.json" --include="*.txt" \
+            --exclude-dir=".git" .; then
+            echo "::error::发现疑似硬编码 API key！请改用环境变量（见 core/secrets.py）"
+            exit 1
+          fi
+          echo "✓ 未发现硬编码密钥"
+
+  smoke:
+    name: 冒烟测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+      - name: 导入与引擎舱
+        run: |
+          python -c "import huamei; print('version', huamei.__version__)"
+          python -m huamei engines
+      - name: 验证密钥管理（无 key 时应报错而非泄漏）
+        run: |
+          python -c "
+          from huamei.core.secrets import get_key
+          import os
+          os.environ.pop('AGNES_API_KEY', None)
+          try:
+              get_key('agnes')
+              print('::error::无 key 时应抛异常')
+              exit(1)
+          except RuntimeError as e:
+              assert 'AGNES_API_KEY' in str(e)
+              print('✓ 密钥管理正常')
+          "

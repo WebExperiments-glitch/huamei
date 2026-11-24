@@ -1,0 +1,29 @@
+# 密钥（绝不提交）
+.env
+*.key
+secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# 数据（大文件不进仓库）
+*.parquet
+*.jsonl
+data/
+out/
+.curation_cache/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# 测试缓存
+.pytest_cache/

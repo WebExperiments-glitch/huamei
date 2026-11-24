@@ -1,0 +1,39 @@
+# 中文预训练语料清洗配方（借鉴 Data-Juicer / DataFlow 的 YAML recipe 风格）
+name: zh_pretrain_clean
+description: 中文 CPT 语料清洗：语言识别→精确去重→启发式→质量打分
+
+input:
+  paths:
+    - data/fineweb_edu_chinese/*.parquet
+  format: parquet
+  text_field: text
+
+stages:
+  - type: language
+    lang: zh
+    threshold: 0.8
+    action: filter          # 不通过的丢弃
+
+  - type: exact_dedup
+    action: filter
+
+  - type: heuristic
+    action: filter
+    rules:
+      min_length: 200
+      max_symbol_ratio: 0.3
+      max_short_line_ratio: 0.67
+
+  - type: quality
+    action: score
+    threshold: 0.5
+    classifier: fineweb-edu-chinese   # 后续接入
+
+output:
+  path: data/clean/zh_pretrain.parquet
+  format: parquet
+  keep_metadata: true
+
+cache:
+  enabled: true
+  dir: .curation_cache
