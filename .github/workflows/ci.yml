@@ -34,7 +34,9 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -e .
-      - name: 导入与引擎舱
+      - name: Import and engine bay
+        env:
+          PYTHONPATH: .
         run: |
           python -c "import huamei; print('version', huamei.__version__)"
           python -m huamei engines

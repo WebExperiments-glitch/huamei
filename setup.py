@@ -1,8 +1,16 @@
-"""Huamei 安装脚本。"""
+"""Huamei install script.
+
+Layout note: the repository root itself is the `huamei` package (it contains __init__.py).
+We map it explicitly so `pip install -e .` exposes it correctly.
+"""
 from setuptools import setup, find_packages
 
 with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
+
+subpackages = find_packages(exclude=["tests", "tests.*"])
+# find_packages() skips the repo root; add it explicitly via package_dir mapping
+packages = ["huamei"] + ["huamei." + p for p in subpackages]
 
 setup(
     name="huamei",
@@ -11,7 +19,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="MIT",
-    packages=find_packages(),
+    packages=packages,
+    package_dir={"huamei": "."},
     python_requires=">=3.10",
     install_requires=[
         "pyarrow>=14.0",
