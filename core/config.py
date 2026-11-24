@@ -17,7 +17,7 @@ class HuameiConfig:
     reuse_dpo: bool = True            # 失败样本转 DPO 负例
     workers: int = 200
     judge_rounds: int = 2
-    api_provider: str = "deepseek"
+    api_provider: str = "agnes"
     recipe: dict = field(default_factory=dict)
 
     @classmethod

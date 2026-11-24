@@ -32,6 +32,11 @@ def _load_dotenv():
 _load_dotenv()
 
 
+def get_default_provider() -> str:
+    """Default LLM provider, configurable via HUAMEI_PROVIDER env var."""
+    return os.environ.get("HUAMEI_PROVIDER", "agnes").strip().lower()
+
+
 def get_key(provider: str) -> str:
     """获取对应 provider 的 API key。"""
     env_map = {

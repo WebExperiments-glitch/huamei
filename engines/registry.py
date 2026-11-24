@@ -42,8 +42,9 @@ class RefineryEngine(Engine):
     info = EngineInfo("refinery", "huamei", "三级精炼", True)
 
     def run(self, data, **params):
-        from ..refinery import Refinery
-        return Refinery().refine(data)
+        import asyncio
+        from ..refinery.async_tower import refine_batch
+        return asyncio.run(refine_batch(data, workers=params.get("workers", 200)))
 
 
 def build_registry() -> EngineRegistry:

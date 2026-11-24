@@ -69,8 +69,9 @@ async def refine_one_async(client, q, a, synth_samples=2):
     return {"q": q, "final": None, "grade": "rejected", "original": a}
 
 
-async def refine_batch(pairs, workers=500, synth_samples=2, provider="deepseek"):
+async def refine_batch(pairs, workers=200, synth_samples=2, provider=None):
     from ..core.pipeline import LLMClient
-    client = LLMClient(provider=provider, max_concurrency=workers)
+    from ..core.secrets import get_default_provider
+    client = LLMClient(provider=provider or get_default_provider(), max_concurrency=workers)
     tasks = [refine_one_async(client, q, a, synth_samples) for q, a in pairs]
     return await asyncio.gather(*tasks)

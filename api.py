@@ -23,14 +23,24 @@ def refine(path: str, output: str = None, workers: int = 200, limit: int = 0, qu
     """三级精炼：L1验收 → L2诊断修复 → L3合成重构。"""
     import asyncio
     from .refinery.async_tower import refine_batch
+    from .stages.pre_filter import prefilter
     rows = _load(path)
     if limit:
         rows = rows[:limit]
     pairs = _pairs(rows)
     if not quiet:
         print(banner())
-        print(section("采摘 / LOAD"))
-        print(row("输入样本", str(len(pairs))))
+        print(section("INPUT"))
+        print(row("loaded", str(len(pairs))))
+        print(close())
+
+    # Cheap deterministic pre-filter BEFORE LLM judging
+    pairs, fstats = prefilter(pairs)
+    if not quiet:
+        print(section("PRE-FILTER (dedup + heuristics)"))
+        print(row("dedup removed", str(fstats.dedup_removed)))
+        print(row("quality removed", str(fstats.quality_removed)))
+        print(row("survived", str(fstats.survived)))
         print(close())
 
     results = asyncio.run(refine_batch(pairs, workers=workers, synth_samples=2))
@@ -38,6 +48,8 @@ def refine(path: str, output: str = None, workers: int = 200, limit: int = 0, qu
     c = Counter(r["grade"] for r in results)
     report = {
         "total": len(results),
+        "prefilter_dedup_removed": fstats.dedup_removed,
+        "prefilter_quality_removed": fstats.quality_removed,
         "gold": c.get("gold", 0),
         "silver": c.get("silver", 0),
         "bronze": c.get("bronze", 0),

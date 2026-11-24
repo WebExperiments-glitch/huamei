@@ -21,12 +21,13 @@ JUDGE_SYSTEM = """你是极端严格的数据质量审查员，默认拒绝。�
 
 输出：第一行只写 PASS 或 FAIL，第二行不超过30字说明原因。不要输出其他内容。"""
 
-from ..core.secrets import get_key
+from ..core.secrets import get_key, get_default_provider
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 AGNES_URL = "https://apihub.agnes-ai.com/v1/chat/completions"
 
 
-def call_llm(messages, provider="agnes", max_tokens=80, retries=5):
+def call_llm(messages, provider=None, max_tokens=80, retries=5):
+    provider = provider or get_default_provider()
     if provider == "deepseek":
         body = {"model": "deepseek-flash", "messages": messages, "stream": False,
                 "max_tokens": max_tokens, "thinking": {"type": "disabled"}}
@@ -51,7 +52,7 @@ def call_llm(messages, provider="agnes", max_tokens=80, retries=5):
     return None
 
 
-def judge_one(q: str, a: str, provider="agnes") -> tuple[str, str]:
+def judge_one(q: str, a: str, provider=None) -> tuple[str, str]:
     user = f"【用户消息】\n{q}\n\n【助手回复】\n{a}\n\n请严格审查，输出 PASS 或 FAIL 及原因。"
     resp = call_llm([
         {"role": "system", "content": JUDGE_SYSTEM},
@@ -63,7 +64,7 @@ def judge_one(q: str, a: str, provider="agnes") -> tuple[str, str]:
     return ("PASS" if first == "PASS" else "FAIL", resp.split("\n")[1].strip()[:50] if "\n" in resp else "")
 
 
-def judge_batch(pairs: list[tuple[str, str]], workers=200, provider="agnes", rounds=2):
+def judge_batch(pairs: list[tuple[str, str]], workers=200, provider=None, rounds=2):
     """双轮独立投票，全部 PASS 才保留。"""
     results = [[] for _ in pairs]
     for _ in range(rounds):
