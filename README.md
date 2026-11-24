@@ -1,96 +1,180 @@
-# Huamei · 话梅
+# Huamei
 
-> 像腌制一枚话梅那样，把粗糙的对话数据，反复漂洗、浸渍、晾晒，
-> 去掉苦涩，留下酸甜回甘。
+**A unified data refinery for large language models.** Huamei cleans, judges, and rebuilds training data across every stage — pretraining, continued pretraining (CPT), supervised fine-tuning (SFT), and reinforcement learning (RL) — behind a single, minimal API.
 
-**Huamei（话梅）** 是一台对话数据精炼仪——一套覆盖「预训练 / CPT / SFT / RL」全阶段的统一数据清洗系统。
+ under the hood, it orchestrates a set of proven open-source engines (datatrove, Dolma) together with two original components: a three-level refinery tower and an anti-AI-tone judge. Users never see the individual tools; they see one coherent instrument with one interface.
 
-## 为什么叫话梅
+---
 
-- **说书先生含话梅润口才能继续说下去** → 我们精炼的是**对话（话）数据**
-- **腌制去涩、反复晾晒，留下酸甜精华** → 数据清洗：去杂质、留精华
-- **酸甜咸甘四味** → 数据的多维度质量（6 维诊断）
-- **生津止渴、值得回味** → 让数据"值得回味"
+## Why Huamei
 
-## 核心创新
+Training data quality is the ceiling of model quality. In practice, however, data cleaning is fragmented:
 
-1. **三级精炼塔**：L1 严格验收 → L2 诊断修复 → L3 合成重构，失败品转 DPO 负例
-2. **分级验收**：Gold/Silver/Bronze 用不同严格度，符合质量分级本意
-3. **反 AI 腔质检**：独家 rubric，专治「我太懂你这种感觉了」式套话
-4. **中文特化**：解决英文清洗工具对中文全部误杀的问题
-5. **内外一体的仪器化封装**：7 个开源工具隐藏为引擎舱，对外只有一个 `huamei`
-6. **低内存异步引擎**：统一 LLM 客户端 + 信号量，43MB 内存
+- One tool handles deduplication, another handles heuristic filtering, yet another handles LLM-based judging.
+- Each has its own data format, config style, and CLI.
+- There is no unified way to take raw data — for pretraining or for SFT — and get clean, graded, ready-to-use output.
 
-## Benchmark（v0.1，全量 529 条）
+Huamei closes this gap. It provides:
 
-| 指标 | 数值 |
+1. **One data format** across all stages (`HuameiDoc`).
+2. **One configuration surface** (YAML recipes + a small config dataclass).
+3. **One API**: `huamei.refine()`, `huamei.judge()`, `huamei.engines()`.
+4. **A unified engine bay** where internal tools are pluggable implementation details.
+
+---
+
+## Core ideas
+
+### 1. Three-level refinery tower
+
+Raw data goes through three levels, each with a different quality bar and a different recovery strategy:
+
+| Level | Action | Output grade |
+|---|---|---|
+| L1 — Accept | A strict judge decides whether the sample is good as-is | 🟡 Gold |
+| L2 — Diagnose & Repair | A multi-dimensional diagnosis identifies *why* it failed (AI tone, fabrication, off-topic, missing empathy, unnatural phrasing, length), then a targeted rewrite is generated | ⚪ Silver |
+| L3 — Synthesize | The original answer is discarded; a fresh answer is generated from the question alone | 🔵 Bronze |
+| Final reject | Unsalvageable samples | ⚫ Rejected — kept as DPO negatives |
+
+This graded design is the central innovation. A single strict filter throws away everything below its bar; the tower *recovers* most of it. In our benchmark, L1 accepted 327/529 samples, and L2 recovered another 201 — data that a single-stage filter would have lost.
+
+### 2. Graded judging
+
+Gold, Silver, and Bronze use deliberately different judging standards. This matches the semantics of the grades: a Silver sample is not expected to satisfy the strictest bar, only the Silver bar. Applying one uniform standard to all levels is a common design mistake that causes recovery to fail.
+
+### 3. Anti-AI-tone judge
+
+Most public data-cleaning tools check toxicity, deduplication, and perplexity. Few check whether a response *sounds like a real person*. Our judge targets a specific failure mode common in LLM-generated SFT data: template empathy and formulaic phrasing — e.g. "I completely understand how you feel," "hug you," "firstly / secondly / finally," "the questioner..." — and rewards responses that take the user's side first, cite concrete details from the prompt, and stay concise and natural.
+
+### 4. Chinese-specific adapters
+
+Off-the-shelf English cleaning rules (Gopher, C4) fail on Chinese text: they rely on whitespace tokenization and sentence-ending punctuation like `.?!`. Our adapters use character n-grams and Chinese punctuation, making the same rules work correctly for Chinese corpora.
+
+### 5. Instrument-style encapsulation
+
+All internal engines — including third-party tools — sit behind a single package interface. There is no exposed tool-specific config, no tool-specific data format, and no tool-specific CLI. Internally, everything shares one async LLM client with a semaphore, one data format, and one rate-limit/backoff policy.
+
+---
+
+## Benchmark
+
+Full run on 529 SFT samples, 500 concurrent workers, Agnes free API:
+
+| Metric | Value |
 |---|---:|
-| 速度 | **5.7 样本/秒**（500 并发）|
-| 内存峰值 | **43.9 MB** |
-| 🟡 Gold（L1 直接通过）| 327 (62%) |
-| ⚪ Silver（L2 诊断修复）| 201 (38%) |
-| 🔵 Bronze（L3 合成重构）| 1 |
-| ⚫ Rejected | 0 |
-| **可用率** | **100%** |
+| Throughput | **5.7 samples/s** |
+| Peak memory | **43.9 MB** |
+| Gold (L1) | 327 (62%) |
+| Silver (L2 recovered) | 201 (38%) |
+| Bronze (L3 recovered) | 1 |
+| Rejected | 0 |
+| **Usable rate** | **100%** |
 
-> 全程使用 Agnes 免费 API，零成本。
+*Measured on 2026-11-24. Numbers depend on the judge model and API rate limits.*
 
-## 快速开始
+---
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+Set an API key for the judge (Agnes or DeepSeek):
+
+```bash
+export AGNES_API_KEY=sk-...
+# or create a .env file (see .env.example)
+export DEEPSEEK_API_KEY=sk-...
+```
+
+---
+
+## Usage
+
+### Python API
 
 ```python
 import huamei
 
-# 三级精炼（对外只有这一个动作）
-report = huamei.refine("data/raw.parquet")
+# Three-level refinery — the main entry point
+report = huamei.refine("data/raw.parquet", workers=500)
+# outputs: raw_gold.parquet, raw_silver.parquet, raw_bronze.parquet, raw_rejected.parquet
 
-# 纯质检
+# Strict quality check only
 report = huamei.judge("data/raw.parquet")
 
-# 查看内部引擎舱
+# Inspect the internal engine bay
 print(huamei.engines())
 ```
 
+### CLI
+
 ```bash
-# CLI
 python -m huamei refine data/raw.parquet --workers 500
 python -m huamei judge data/raw.parquet
+python -m huamei engines
 ```
 
-## 架构
+---
+
+## Architecture
 
 ```
-huamei/                    # 对外：一台仪器
-  __init__.py              # 统一 API: refine / judge / engines
-  api.py                   # 统一入口
-  core/                    # 内核
-    document.py            # 统一数据单元 HuameiDoc
-    engine.py              # 引擎注册表
-    pipeline.py            # 统一异步 LLM 客户端
-    config.py              # 统一配置
-  engines/                 # 引擎舱（内部，7个工具藏在这里）
-    registry.py
-  adapters/                # 工具适配器
-    datatrove_adapter.py   # MinHash 去重
-    dolma_adapter.py       # Gopher/C4（中文特化）
-  refinery/                # ⭐ 三级精炼塔
-    async_tower.py         # 异步 L1→L2→L3
-    diagnostic_judge.py    # 6维诊断
-    prompts.py             # 校准参数（集中管理）
+huamei/
+  __init__.py            # public API: refine / judge / engines
+  api.py                 # unified entry points
+  core/
+    document.py          # HuameiDoc — one data format for all stages
+    engine.py            # engine registry
+    pipeline.py          # unified async LLM client + semaphore
+    config.py            # config dataclass
+    secrets.py           # API keys from environment, never hardcoded
+  engines/
+    registry.py          # engine registration
+  adapters/
+    datatrove_adapter.py # MinHash dedup + filters
+    dolma_adapter.py     # Gopher/C4 rules, Chinese-specific
+  refinery/
+    async_tower.py       # async L1 -> L2 -> L3
+    diagnostic_judge.py  # 6-dimension diagnosis
+    prompts.py           # centralized prompts
   judge/
-    anti_ai_rubric.py      # 反 AI 腔 judge
-  ui/panel.py              # 仪表盘输出
-  recipes/                 # YAML 配方
+    anti_ai_rubric.py    # anti-AI-tone judge
+  ui/
+    panel.py             # instrument-style output
+  recipes/               # YAML recipes
+  .github/workflows/ci.yml  # secret scan + smoke test
 ```
 
-## 引擎舱（内部）
+---
 
-| 引擎 | 来源 | 能力 |
+## Internal engines
+
+| Engine | Source | Capability |
 |---|---|---|
-| minhash | datatrove | 近似去重 |
-| quality | dolma | Gopher/C4 质量规则 |
-| judge | huamei | 反 AI 腔质检 |
-| refinery | huamei | 三级精炼 |
+| minhash | datatrove | approximate deduplication |
+| quality | Dolma | Gopher/C4 quality rules |
+| judge | huamei | anti-AI-tone judging |
+| refinery | huamei | three-level tower |
 
-## 路线图
+---
 
-见 `INNOVATION_ROADMAP.md` —— 基于 2026 前沿调研（DS2 多样性校正、LSF 防坍塌、自适应选择、影响函数等）。
+## Security
+
+- No API keys are stored in the repository. All keys are read from environment variables (see `core/secrets.py` and `.env.example`).
+- CI includes a secret-scan job that fails the build if a hardcoded `sk-` key appears anywhere.
+- `.env` is gitignored.
+
+---
+
+## Roadmap
+
+See `INNOVATION_ROADMAP.md` for research-grounded next steps, including multi-judge score calibration (DS2), diversity-aware selection, latent-space filtering against model collapse, bandit-based routing, and training-feedback loops.
+
+---
+
+## License
+
+MIT

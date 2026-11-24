@@ -4,7 +4,7 @@ from .ui.panel import banner
 
 
 def main():
-    p = argparse.ArgumentParser(prog="huamei", description="Huamei · 话梅数据精炼仪")
+    p = argparse.ArgumentParser(prog="huamei", description="Huamei — unified data refinery")
     sub = p.add_subparsers(dest="cmd")
     rp = sub.add_parser("refine", help="三级精炼")
     rp.add_argument("parquet")

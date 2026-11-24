@@ -1,7 +1,4 @@
-r"""Huamei（话梅）— 对话数据精炼仪。
-
-像腌制一枚话梅那样，把粗糙的对话数据，反复漂洗、浸渍、晾晒，
-去掉苦涩，留下酸甜回甘。
+r"""Huamei — a unified data refinery for language models.
 
     import huamei
     huamei.refine("data/raw.parquet")

@@ -5,8 +5,8 @@ W = 56
 
 def banner(version="0.1.0"):
     return f"""╔{'═'*W}╗
-║  {'HUAMEI · 话梅数据精炼仪':<{W-4}}║
-║  {'Data Refinery · v'+version:<{W-4}}║
+║  {'HUAMEI · DATA REFINERY':<{W-4}}║
+║  {'v'+version:<{W-4}}║
 ╚{'═'*W}╝"""
 
 

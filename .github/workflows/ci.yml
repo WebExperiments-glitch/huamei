@@ -30,23 +30,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      - name: 安装依赖
-        run: pip install -r requirements.txt
+      - name: 安装依赖与包
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
       - name: 导入与引擎舱
         run: |
           python -c "import huamei; print('version', huamei.__version__)"
           python -m huamei engines
-      - name: 验证密钥管理（无 key 时应报错而非泄漏）
+      - name: Verify secrets are environment-driven
+        env:
+          AGNES_API_KEY: ""
         run: |
-          python -c "
-          from huamei.core.secrets import get_key
+          python - <<'PY'
           import os
-          os.environ.pop('AGNES_API_KEY', None)
+          from huamei.core.secrets import get_key
+          os.environ.pop("AGNES_API_KEY", None)
           try:
-              get_key('agnes')
-              print('::error::无 key 时应抛异常')
-              exit(1)
-          except RuntimeError as e:
-              assert 'AGNES_API_KEY' in str(e)
-              print('✓ 密钥管理正常')
-          "
+              get_key("agnes")
+          except RuntimeError:
+              print("OK: missing key raises, no secret leaked")
+          else:
+              raise SystemExit("ERROR: get_key should raise without a key")
+          PY

@@ -6,7 +6,7 @@ import yaml
 
 @dataclass
 class HuameiConfig:
-    """话梅精炼配方。"""
+    """Refinery configuration."""
     name: str = "default"
     input_path: str = ""
     output_path: str = ""

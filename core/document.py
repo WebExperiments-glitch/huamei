@@ -8,7 +8,7 @@ from typing import Any
 
 @dataclass
 class HuameiDoc:
-    """话梅数据单元。"""
+    """Unified data unit for all stages."""
     text: str
     id: str = ""
     source: str = ""
